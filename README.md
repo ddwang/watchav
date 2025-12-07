@@ -24,13 +24,13 @@ A CLI tool that monitors camera and microphone usage on macOS in real-time.
 ## Installation
 
 ```bash
-npm install -g watchav
+npm install -g @ddwang/watchav
 ```
 
 Or run directly with npx:
 
 ```bash
-npx watchav
+npx @ddwang/watchav
 ```
 
 ## Usage

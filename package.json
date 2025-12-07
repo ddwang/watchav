@@ -1,5 +1,5 @@
 {
-  "name": "watchav",
+  "name": "@ddwang/watchav",
   "version": "1.0.0",
   "description": "Monitor camera and microphone usage on macOS",
   "type": "module",
