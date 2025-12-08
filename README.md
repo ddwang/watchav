@@ -60,7 +60,7 @@ watchav --interval 200
 
 ## How It Works
 
-ConeDrop uses macOS system APIs to detect camera and microphone activity:
+watchav uses macOS system APIs to detect camera and microphone activity:
 
 - **Apple Silicon**: Monitors kernel logs for camera streaming state changes and microphone audio events
 - **Intel Macs**: Uses IORegistry polling and UVC extension logs
