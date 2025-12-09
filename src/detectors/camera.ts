@@ -3,9 +3,15 @@ import { createInterface, Interface } from 'node:readline';
 import { EventEmitter } from 'node:events';
 import type { Architecture, DeviceStatus } from '../types.js';
 
+// USB Video Class (UVC) interface constants
+// See USB Device Class Definition for Video Devices specification
+const USB_CLASS_VIDEO = 14;
+const USB_SUBCLASS_VIDEO_STREAMING = 2;
+
 export class CameraDetector extends EventEmitter {
   private logProcess: ChildProcess | null = null;
   private readline: Interface | null = null;
+  private pollInterval: NodeJS.Timeout | null = null;
   private currentState: boolean = false;
   private architecture: Architecture;
   private cameraDriverName: string = '';
@@ -30,28 +36,88 @@ export class CameraDetector extends EventEmitter {
     }
   }
 
-  private checkInitialState(): boolean {
+  private checkBuiltInCameraState(): boolean {
     if (this.architecture !== 'arm64') {
       return false;
     }
 
     try {
-      const output = execSync(`ioreg -r -c ${this.cameraDriverName} 2>/dev/null | grep "FrontCameraStreaming"`, {
-        encoding: 'utf-8',
-        timeout: 5000,
-      });
+      const output = execSync(
+        `ioreg -r -c ${this.cameraDriverName} 2>/dev/null | grep "FrontCameraStreaming"`,
+        {
+          encoding: 'utf-8',
+          timeout: 5000,
+        }
+      );
       return output.includes('= Yes');
     } catch {
       return false;
     }
   }
 
-  start(): void {
-    this.currentState = this.checkInitialState();
+  private checkUsbCameraState(): boolean {
+    // Check for USB Video Class devices with active streaming
+    // bInterfaceClass=14 (Video), bInterfaceSubClass=2 (Video Streaming)
+    // UsbUserClientBufferAllocations.Bytes > 0 means actively streaming
+    try {
+      const output = execSync(
+        'ioreg -r -c IOUSBHostInterface -l 2>/dev/null | grep -E "(bInterfaceClass|bInterfaceSubClass|UsbUserClientBufferAllocations)"',
+        { encoding: 'utf-8', timeout: 5000 }
+      );
 
-    const predicate = this.architecture === 'arm64'
-      ? `process == "kernel" AND eventMessage CONTAINS "${this.cameraDriverName}" AND eventMessage CONTAINS "Streaming"`
-      : 'subsystem CONTAINS "com.apple.UVCExtension" AND composedMessage CONTAINS "Post PowerLog"';
+      const lines = output.split('\n');
+      let interfaceClass = 0;
+      let interfaceSubClass = 0;
+
+      for (const line of lines) {
+        if (line.includes('bInterfaceClass')) {
+          const match = line.match(/=\s*(\d+)/);
+          if (match) interfaceClass = parseInt(match[1], 10);
+        } else if (line.includes('bInterfaceSubClass')) {
+          const match = line.match(/=\s*(\d+)/);
+          if (match) interfaceSubClass = parseInt(match[1], 10);
+        } else if (line.includes('UsbUserClientBufferAllocations')) {
+          const match = line.match(/"Bytes"=(\d+)/);
+          if (match) {
+            const bufferBytes = parseInt(match[1], 10);
+            if (
+              interfaceClass === USB_CLASS_VIDEO &&
+              interfaceSubClass === USB_SUBCLASS_VIDEO_STREAMING &&
+              bufferBytes > 0
+            ) {
+              return true;
+            }
+          }
+          // Reset for next interface
+          interfaceClass = 0;
+          interfaceSubClass = 0;
+        }
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  }
+
+  private checkCameraState(): boolean {
+    return this.checkBuiltInCameraState() || this.checkUsbCameraState();
+  }
+
+  private pollCameraState(): void {
+    const newState = this.checkCameraState();
+    if (newState !== this.currentState) {
+      this.currentState = newState;
+      this.emitStatus();
+    }
+  }
+
+  start(): void {
+    this.currentState = this.checkCameraState();
+
+    const predicate =
+      this.architecture === 'arm64'
+        ? `process == "kernel" AND eventMessage CONTAINS "${this.cameraDriverName}" AND eventMessage CONTAINS "Streaming"`
+        : 'subsystem CONTAINS "com.apple.UVCExtension" AND composedMessage CONTAINS "Post PowerLog"';
 
     this.logProcess = spawn('/usr/bin/log', ['stream', '--predicate', predicate], {
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -83,6 +149,9 @@ export class CameraDetector extends EventEmitter {
         this.emit('error', new Error(`Log stream exited with code ${code}`));
       }
     });
+
+    // Poll every 500ms for reliable detection (log stream can be slow, and USB cameras need polling)
+    this.pollInterval = setInterval(() => this.pollCameraState(), 500);
 
     this.emitStatus();
   }
@@ -131,6 +200,11 @@ export class CameraDetector extends EventEmitter {
   }
 
   stop(): void {
+    if (this.pollInterval) {
+      clearInterval(this.pollInterval);
+      this.pollInterval = null;
+    }
+
     if (this.readline) {
       this.readline.close();
       this.readline = null;

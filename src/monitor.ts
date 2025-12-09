@@ -1,14 +1,12 @@
 import { EventEmitter } from 'node:events';
 import { CameraDetector } from './detectors/camera.js';
 import { MicrophoneDetector } from './detectors/microphone.js';
-import { ProcessDetector } from './detectors/process.js';
 import { discoverDevices, type AudioDevice, type VideoDevice } from './devices.js';
 import type { Architecture, DeviceStatus, DeviceInfo, MonitorStatus, CLIOptions } from './types.js';
 
 export class DeviceMonitor extends EventEmitter {
   private cameraDetector: CameraDetector;
   private microphoneDetector: MicrophoneDetector;
-  private processDetector: ProcessDetector;
   private options: CLIOptions;
 
   private cameraStatus: DeviceStatus = { active: false, timestamp: new Date() };
@@ -23,26 +21,25 @@ export class DeviceMonitor extends EventEmitter {
     this.options = options;
     this.cameraDetector = new CameraDetector(architecture);
     this.microphoneDetector = new MicrophoneDetector(options.pollInterval, architecture);
-    this.processDetector = new ProcessDetector();
 
-    const devices = discoverDevices();
+    const devices = discoverDevices({ verbose: options.verbose });
     this.audioDevices = devices.audioInputs;
     this.videoDevices = devices.videoDevices;
   }
 
   async start(): Promise<void> {
-    this.cameraDetector.on('change', async (status: DeviceStatus) => {
+    this.cameraDetector.on('change', (status: DeviceStatus) => {
       this.cameraStatus = status;
-      await this.emitStatus();
+      this.emitStatus();
     });
 
     this.cameraDetector.on('error', (error: Error) => {
       this.emit('error', error);
     });
 
-    this.microphoneDetector.on('change', async (status: DeviceStatus) => {
+    this.microphoneDetector.on('change', (status: DeviceStatus) => {
       this.microphoneStatus = status;
-      await this.emitStatus();
+      this.emitStatus();
     });
 
     this.microphoneDetector.on('error', (error: Error) => {
@@ -59,7 +56,7 @@ export class DeviceMonitor extends EventEmitter {
   }
 
   private refreshDevices(): void {
-    const devices = discoverDevices();
+    const devices = discoverDevices({ verbose: this.options.verbose });
     const devicesChanged =
       JSON.stringify(this.audioDevices) !== JSON.stringify(devices.audioInputs) ||
       JSON.stringify(this.videoDevices) !== JSON.stringify(devices.videoDevices);
@@ -97,28 +94,12 @@ export class DeviceMonitor extends EventEmitter {
     return devices;
   }
 
-  private async emitStatus(): Promise<void> {
+  private emitStatus(): void {
     const status: MonitorStatus = {
       camera: this.cameraStatus,
       microphone: this.microphoneStatus,
       devices: this.buildDeviceList(),
     };
-
-    if (this.options.showProcess) {
-      const [cameraProcesses, microphoneProcesses] = await Promise.all([
-        this.cameraStatus.active
-          ? this.processDetector.getCameraProcesses()
-          : Promise.resolve([]),
-        this.microphoneStatus.active
-          ? this.processDetector.getMicrophoneProcesses()
-          : Promise.resolve([]),
-      ]);
-
-      status.processes = {
-        camera: cameraProcesses,
-        microphone: microphoneProcesses,
-      };
-    }
 
     this.emit('status', status);
   }

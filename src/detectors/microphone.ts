@@ -120,9 +120,8 @@ export class MicrophoneDetector extends EventEmitter {
 
   private async poll(): Promise<void> {
     try {
-      const isActive = this.architecture === 'arm64'
-        ? await this.checkAppleSilicon()
-        : await this.checkIntel();
+      const isActive =
+        this.architecture === 'arm64' ? await this.checkAppleSilicon() : await this.checkIntel();
 
       if (isActive !== this.currentState) {
         this.currentState = isActive;

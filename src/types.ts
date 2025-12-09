@@ -29,7 +29,9 @@ export interface MonitorStatus {
 }
 
 export interface CLIOptions {
-  showProcess: boolean;
   pollInterval: number;
   jsonOutput: boolean;
+  quiet: boolean;
+  notify: boolean;
+  verbose: boolean;
 }

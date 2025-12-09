@@ -15,14 +15,18 @@ export interface DeviceList {
   videoDevices: VideoDevice[];
 }
 
-export function discoverDevices(): DeviceList {
+export interface DiscoverOptions {
+  verbose?: boolean;
+}
+
+export function discoverDevices(options: DiscoverOptions = {}): DeviceList {
   return {
-    audioInputs: discoverAudioInputs(),
-    videoDevices: discoverVideoDevices(),
+    audioInputs: discoverAudioInputs(options),
+    videoDevices: discoverVideoDevices(options),
   };
 }
 
-function discoverAudioInputs(): AudioDevice[] {
+function discoverAudioInputs(options: DiscoverOptions): AudioDevice[] {
   try {
     const output = execSync('system_profiler SPAudioDataType -json 2>/dev/null', {
       encoding: 'utf-8',
@@ -35,7 +39,8 @@ function discoverAudioInputs(): AudioDevice[] {
 
     for (const device of audioData) {
       const name = device._name;
-      const hasInput = device['coreaudio_input_source'] || device['coreaudio_default_audio_input_device'];
+      const hasInput =
+        device['coreaudio_input_source'] || device['coreaudio_default_audio_input_device'];
 
       if (name && hasInput) {
         devices.push({
@@ -45,13 +50,25 @@ function discoverAudioInputs(): AudioDevice[] {
       }
     }
 
-    return devices.length > 0 ? devices : [{ id: 'built-in-microphone', name: 'Built-in Microphone' }];
-  } catch {
+    if (devices.length === 0 && options.verbose) {
+      console.error('[verbose] No audio input devices found, using fallback');
+    }
+
+    return devices.length > 0
+      ? devices
+      : [{ id: 'built-in-microphone', name: 'Built-in Microphone' }];
+  } catch (error) {
+    if (options.verbose) {
+      console.error(
+        '[verbose] Failed to discover audio devices:',
+        error instanceof Error ? error.message : error
+      );
+    }
     return [{ id: 'built-in-microphone', name: 'Built-in Microphone' }];
   }
 }
 
-function discoverVideoDevices(): VideoDevice[] {
+function discoverVideoDevices(options: DiscoverOptions): VideoDevice[] {
   try {
     const output = execSync('system_profiler SPCameraDataType -json 2>/dev/null', {
       encoding: 'utf-8',
@@ -74,8 +91,18 @@ function discoverVideoDevices(): VideoDevice[] {
       }
     }
 
+    if (devices.length === 0 && options.verbose) {
+      console.error('[verbose] No video devices found, using fallback');
+    }
+
     return devices.length > 0 ? devices : [{ id: 'built-in-camera', name: 'Built-in Camera' }];
-  } catch {
+  } catch (error) {
+    if (options.verbose) {
+      console.error(
+        '[verbose] Failed to discover video devices:',
+        error instanceof Error ? error.message : error
+      );
+    }
     return [{ id: 'built-in-camera', name: 'Built-in Camera' }];
   }
 }
