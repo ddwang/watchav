@@ -17,7 +17,8 @@ A CLI tool that monitors camera and microphone usage on macOS in real-time.
 - Real-time monitoring of camera and microphone status
 - Detects when apps start/stop using your camera or mic
 - Lists all available audio/video capture devices
-- Shows which processes are using each device (optional)
+- Supports USB webcams and external audio devices
+- Desktop notifications when camera/mic state changes (optional)
 - Works on both Apple Silicon and Intel Macs
 - Supports JSON output for scripting
 
@@ -39,23 +40,32 @@ npx @ddwang/watchav
 # Basic monitoring
 watchav
 
-# Show which processes are using the camera/mic
-watchav --process
+# Desktop notifications when state changes
+watchav --notify
+
+# Only output when state changes (no continuous display)
+watchav --quiet
 
 # JSON output for scripting
 watchav --json
 
 # Faster polling (default: 500ms)
 watchav --interval 200
+
+# Verbose output for debugging
+watchav --verbose
 ```
 
 ### Options
 
 | Option | Short | Description |
 |--------|-------|-------------|
-| `--process` | `-p` | Show which process is using each device |
 | `--interval` | `-i` | Microphone poll interval in ms (default: 500) |
 | `--json` | `-j` | Output in JSON format |
+| `--quiet` | `-q` | Only output on state changes |
+| `--notify` | `-n` | Show desktop notifications on state changes |
+| `--verbose` | `-V` | Show verbose output for debugging |
+| `--version` | `-v` | Show version number |
 | `--help` | `-h` | Show help message |
 
 ## How It Works
@@ -64,6 +74,7 @@ watchav uses macOS system APIs to detect camera and microphone activity:
 
 - **Apple Silicon**: Monitors kernel logs for camera streaming state changes and microphone audio events
 - **Intel Macs**: Uses IORegistry polling and UVC extension logs
+- **USB Webcams**: Detects USB Video Class (UVC) devices and monitors their streaming state via IORegistry
 
 The tool detects the initial state on startup (so it works even if recording is already in progress) and then monitors for changes in real-time.
 
@@ -84,6 +95,15 @@ npm install
 
 # Build
 npm run build
+
+# Run tests
+npm test
+
+# Lint
+npm run lint
+
+# Format code
+npm run format
 
 # Link for local development
 npm link
