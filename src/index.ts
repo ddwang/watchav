@@ -15,6 +15,7 @@ import {
   SYMBOLS,
 } from './output.js';
 import { notifyDeviceChange } from './notify.js';
+import { addEvent, getHistory } from './history.js';
 import type { CLIOptions, MonitorStatus } from './types.js';
 
 // Read version from package.json
@@ -42,6 +43,8 @@ Examples:
   watchav --json             Machine-readable output
   watchav --notify           Desktop notifications on state change
   watchav --interval 200     Faster microphone polling
+
+Events are logged to ~/.watchav/events.log
 `);
 }
 
@@ -142,23 +145,29 @@ async function main(): Promise<void> {
   // Handle status updates
   monitor.on('status', (status: MonitorStatus) => {
     // Check for state changes and send notifications
-    if (options.notify) {
-      if (lastCameraActive !== null && status.camera.active !== lastCameraActive) {
+    const cameraChanged = lastCameraActive !== null && status.camera.active !== lastCameraActive;
+    const micChanged =
+      lastMicrophoneActive !== null && status.microphone.active !== lastMicrophoneActive;
+
+    if (cameraChanged) {
+      addEvent('camera', status.camera.active);
+      if (options.notify) {
         notifyDeviceChange('camera', status.camera.active, options.verbose);
       }
-      if (lastMicrophoneActive !== null && status.microphone.active !== lastMicrophoneActive) {
+    }
+    if (micChanged) {
+      addEvent('microphone', status.microphone.active);
+      if (options.notify) {
         notifyDeviceChange('microphone', status.microphone.active, options.verbose);
       }
     }
 
     // Track state for next comparison
-    const stateChanged =
-      lastCameraActive !== status.camera.active ||
-      lastMicrophoneActive !== status.microphone.active;
+    const stateChanged = cameraChanged || micChanged;
     lastCameraActive = status.camera.active;
     lastMicrophoneActive = status.microphone.active;
 
-    const output = formatStatus(status, options.jsonOutput);
+    const output = formatStatus(status, options.jsonOutput, getHistory());
 
     if (options.jsonOutput) {
       // In JSON mode, print each update on a new line (or only on change if quiet)

@@ -10,6 +10,12 @@ A CLI tool that monitors camera and microphone usage on macOS in real-time.
   📹  MacBook Pro Camera
   🎙️  MacBook Pro Microphone
   🎙️  ZoomAudioDevice
+
+─── History ───
+
+  10:23:45  📹  ACTIVE
+  10:23:40  🎙️  stopped
+  10:22:15  🎙️  ACTIVE
 ```
 
 ## Features
@@ -17,6 +23,8 @@ A CLI tool that monitors camera and microphone usage on macOS in real-time.
 - Real-time monitoring of camera and microphone status
 - Detects when apps start/stop using your camera or mic
 - Lists all available audio/video capture devices
+- Event history showing the last 10 state changes in the UI
+- Persistent event logging to `~/.watchav/events.log`
 - Supports USB webcams and external audio devices
 - Desktop notifications when camera/mic state changes (optional)
 - Works on both Apple Silicon and Intel Macs
@@ -67,6 +75,16 @@ watchav --verbose
 | `--verbose` | `-V` | Show verbose output for debugging |
 | `--version` | `-v` | Show version number |
 | `--help` | `-h` | Show help message |
+
+## Event Log
+
+All camera and microphone state changes are logged to `~/.watchav/events.log`:
+
+```
+[2025-01-15T10:23:45.123Z] CAMERA ACTIVE
+[2025-01-15T10:23:40.456Z] MICROPHONE STOPPED
+[2025-01-15T10:22:15.789Z] MICROPHONE ACTIVE
+```
 
 ## How It Works
 

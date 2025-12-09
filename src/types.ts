@@ -35,3 +35,11 @@ export interface CLIOptions {
   notify: boolean;
   verbose: boolean;
 }
+
+export type DeviceType = 'camera' | 'microphone';
+
+export interface HistoryEvent {
+  timestamp: Date;
+  device: DeviceType;
+  active: boolean;
+}

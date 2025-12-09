@@ -1,7 +1,6 @@
 import { exec } from 'node:child_process';
 import { SYMBOLS } from './output.js';
-
-export type DeviceType = 'camera' | 'microphone';
+import type { DeviceType } from './types.js';
 
 const DEVICE_LABELS: Record<DeviceType, { icon: string; name: string }> = {
   camera: { icon: SYMBOLS.video, name: 'Camera' },
